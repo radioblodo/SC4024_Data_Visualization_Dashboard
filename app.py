@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import streamlit as st
+st.set_page_config(page_title="Olympics Data Dashboard", layout="wide")
 from pathlib import Path
 
 # Load the CSV file into a DataFrame 
@@ -23,7 +24,7 @@ def load_data():
 df = load_data()
 # Page setup
 # -----------------------------
-st.set_page_config(page_title="Olympics Data Dashboard", layout="wide")
+
 
 st.title("🏅 Olympics Data Visualization Dashboard")
 st.markdown("Explore Olympic trends through geographical, gender, and performance analyses.")
