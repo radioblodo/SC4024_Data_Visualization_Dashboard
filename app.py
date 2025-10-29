@@ -13,9 +13,13 @@ import plotly.express as px
 import streamlit as st
 
 # Load the CSV file into a DataFrame 
-df = pd.read_csv(r"C:\Users\zilia\.cache\kagglehub\datasets\heesoo37\120-years-of-olympic-history-athletes-and-results\versions\2\athlete_events.csv")
+DATA_PATH = Path(__file__).parent / "data" / "athlete_events.csv"
 
-# -----------------------------
+@st.cache_data
+def load_data():
+    return pd.read_csv(DATA_PATH)
+
+df = load_data()
 # Page setup
 # -----------------------------
 st.set_page_config(page_title="Olympics Data Dashboard", layout="wide")
