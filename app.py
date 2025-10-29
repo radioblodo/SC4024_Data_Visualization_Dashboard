@@ -610,7 +610,7 @@ with tab3:
 
         x0 = left_bar.get_x()
         x1 = right_bar.get_x() + right_bar.get_width()
-        pad = left_bar.get_width() * 0.25
+        pad = left_bar.get_width() * 0.20
         x0 -= pad
         x1 += pad
 
