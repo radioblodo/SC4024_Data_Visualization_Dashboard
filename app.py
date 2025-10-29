@@ -12,6 +12,15 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import streamlit as st
 st.set_page_config(page_title="Olympics Data Dashboard", layout="wide")
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stDecoration"] {display: none;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 from pathlib import Path
 
 # Load the CSV file into a DataFrame 
