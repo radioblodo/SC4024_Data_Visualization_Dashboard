@@ -688,7 +688,7 @@ with tab4:
     # CHART 1: Top N Olympians by TOTAL medals (stacked by type)
     # -----------------------------
     st.subheader("Top Olympians by Total Medals")
-    topN = 10  # you can turn this into a slider if you like
+    topN = 10
 
     # medals by (Name, Medal)
     stacked = (
@@ -700,34 +700,42 @@ with tab4:
     total = stacked.groupby("Name")["Count"].sum().sort_values(ascending=False).head(topN)
     top_names = total.index.tolist()
 
-    # keep only topN and sort descending
+    # keep only topN and set categorical order for medals
     stacked_top = stacked[stacked["Name"].isin(top_names)]
 
-    # categorical order: descending (top -> bottom)
+    # ✅ FIX medal order (Bronze → Silver → Gold)
+    medal_order = ["Bronze", "Silver", "Gold"]
+    stacked_top["Medal"] = pd.Categorical(stacked_top["Medal"], categories=medal_order, ordered=True)
+
+    # set name order (top performer at top)
     stacked_top["Name"] = pd.Categorical(
         stacked_top["Name"],
-        categories=top_names,  # already descending
+        categories=top_names,
         ordered=True
     )
 
-    # plot — ensure descending order by sorting values before plotting
+    # plot
     fig_total = px.bar(
-        stacked_top.sort_values(["Name", "Medal"], ascending=[False, True]),
+        stacked_top.sort_values(["Name", "Medal"]),
         x="Count", y="Name", color="Medal",
-        color_discrete_map=medal_colors,
+        color_discrete_map={
+            "Gold": "#FFD700",   # gold color
+            "Silver": "#C0C0C0", # silver color
+            "Bronze": "#CD7F32"  # bronze color
+        },
+        category_orders={"Medal": medal_order},
         title=f"Top {topN} Olympians by Total Medals",
         orientation="h", barmode="stack"
     )
 
-    # Make sure axis respects the category order
     fig_total.update_layout(
         yaxis=dict(categoryorder="array", categoryarray=top_names[::-1]),
+        legend_title_text="Medal",
         margin=dict(l=10, r=10, t=60, b=10),
         height=550
     )
 
     st.plotly_chart(fig_total, use_container_width=True)
-
 
     # -----------------------------
     # CHART 2: Top N by GOLD medals
