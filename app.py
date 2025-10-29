@@ -83,6 +83,7 @@ import numpy as np
 # Optional: load noc.csv once if you have it (columns: NOC, region)
 # If you already loaded it earlier, just delete this block.
 
+noc_df = None
 
 # Build a NOC -> CountryName mapping (fallback to a small dict if noc.csv missing)
 _DEF_NOC2NAME = {
