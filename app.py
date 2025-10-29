@@ -194,12 +194,18 @@ with tab1:
     )
     # WWII gap shading + Cold War boycott notes
     fig_bar.add_vrect(
+        x0=1912, x1=1916, line_width=0,
+        fillcolor="lightgray", opacity=0.25,
+        annotation_text="No Games (WWI)",
+        annotation_position="top left",
+    )
+    fig_bar.add_vrect(
         x0=1940, x1=1944, line_width=0,
         fillcolor="lightgray", opacity=0.25,
         annotation_text="No Games (WWII)",
         annotation_position="top left",
     )
-    for yr, txt in [(1980, "Moscow boycott"), (1984, "LA boycott")]:
+    for yr, txt in [(1980, "Moscow boycott"), (1984, "Los Angeles boycott")]:
         if yr in by_year["Year"].values:
             yv = int(by_year.loc[by_year["Year"] == yr, "Countries"])
             fig_bar.add_annotation(
