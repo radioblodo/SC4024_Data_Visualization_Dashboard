@@ -194,7 +194,7 @@ with tab1:
     )
     # WWII gap shading + Cold War boycott notes
     fig_bar.add_vrect(
-        x0=1916, x1=1916, line_width=0,
+        x0=1914, x1=1918, line_width=0,
         fillcolor="lightgray", opacity=0.25,
         annotation_text="No Games (WWI)",
         annotation_position="top left",
