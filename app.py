@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import streamlit as st
+from pathlib import Path
 
 # Load the CSV file into a DataFrame 
 DATA_PATH = Path(__file__).parent / "data" / "athlete_events.csv"
