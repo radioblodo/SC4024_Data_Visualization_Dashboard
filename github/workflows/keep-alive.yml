@@ -1,0 +1,52 @@
+name: Keep Streamlit App Alive
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 minutes (UTC)
+  workflow_dispatch: # optional: run it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        url:
+          # ⬇️ Put your app URLs here. You can list multiple.
+          - "https://olympicsvisualization4024.streamlit.app"
+          # - "https://another-app.streamlit.app"
+
+    steps:
+      - name: Print local/UTC time
+        run: |
+          echo "Runner UTC time: $(date -u)"
+          echo "Note: SGT is UTC+8"
+
+      - name: Ping ${{ matrix.url }}
+        run: |
+          echo "Pinging: ${{ matrix.url }}"
+          # A randomized sleep (0-90s) staggers calls so your app isn’t hit at the exact same second each time.
+          SLEEP=$((RANDOM % 91))
+          echo "Sleeping ${SLEEP}s to avoid thundering herd..."
+          sleep $SLEEP
+
+          # Use curl with sensible limits & retries
+          curl -I \
+            --fail \
+            --max-time 20 \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            -H "User-Agent: keepalive-bot/1.0" \
+            "${{ matrix.url }}"
+
+      - name: Record result in the job summary
+        if: ${{ success() }}
+        run: |
+          echo "✅ Successfully pinged ${{ matrix.url }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Record failure in the job summary
+        if: ${{ failure() }}
+        run: |
+          echo "❌ Failed to ping ${{ matrix.url }}" >> $GITHUB_STEP_SUMMARY
