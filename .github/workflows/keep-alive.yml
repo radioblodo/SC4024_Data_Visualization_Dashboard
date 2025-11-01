@@ -1,4 +1,4 @@
-name: Keep Streamlit App Alive
+name: Keep Streamlit App Alive (browser)
 
 on:
   schedule:
@@ -6,43 +6,85 @@ on:
   workflow_dispatch:
 
 jobs:
-  ping:
+  wake:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+
     steps:
-      - name: Wake + health-check
+      - name: Set URL
+        id: cfg
         run: |
-          URL_BASE="https://olympicsvisualization4024.streamlit.app"   # <-- your app
-          URL_HEALTH="$URL_BASE/_stcore/health"
-          echo "Pinging at $(date -u)"
-          # jitter to avoid thundering herd
-          sleep $((RANDOM % 45))
+          echo "URL_BASE=https://olympicsvisualization4024.streamlit.app" >> $GITHUB_OUTPUT
 
-          # 1) Gentle nudge (do NOT follow redirects here; just trigger traffic)
-          curl -sS --max-time 30 -A "keepalive-bot/1.0" "$URL_BASE" -o /dev/null || true
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-          # 2) Give the instance a moment to spin
-          sleep 8
+      - name: Install Playwright (Chromium only)
+        run: |
+          npm i -D playwright@1
+          npx playwright install --with-deps chromium
 
-          # 3) Health check loop: expect HTTP 200 and body 'ok'
-          ATTEMPTS=6
-          DELAY=10
-          ok=0
-          for i in $(seq 1 $ATTEMPTS); do
-            CODE=$(curl -sS --max-time 20 -w "%{http_code}" -o health.out "$URL_HEALTH" || echo "000")
-            BODY=$(cat health.out || true)
-            echo "Attempt $i/$ATTEMPTS -> code=$CODE body='$BODY'"
-            if [ "$CODE" = "200" ] && [ "$BODY" = "ok" ]; then
-              ok=1
-              break
-            fi
-            sleep $DELAY
-          done
+      - name: Wake app in headless browser + verify health
+        env:
+          URL_BASE: ${{ steps.cfg.outputs.URL_BASE }}
+        run: |
+          cat > wake.js << 'EOF'
+          const { chromium } = require('playwright');
 
-          echo "Health endpoint: $URL_HEALTH" >> $GITHUB_STEP_SUMMARY
-          if [ $ok -eq 1 ]; then
-            echo "✅ App is awake (200, ok)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ App did not report healthy in time" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+          (async () => {
+            const base = process.env.URL_BASE;
+            const health = `${base}/_stcore/health`;
+            const browser = await chromium.launch();
+            const ctx = await browser.newContext();
+            const page = await ctx.newPage();
+
+            // stagger so we don't all hit at the same moment
+            await page.waitForTimeout(Math.floor(Math.random()*40000));
+
+            console.log(`[wake] Visiting ${base}`);
+            await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+            // If sleep page is shown, click the wake button if present.
+            try {
+              const btn = page.getByRole('button', { name: /get this app back up/i });
+              if (await btn.count()) {
+                console.log('[wake] Sleep page detected. Clicking wake button…');
+                await btn.first().click();
+              }
+            } catch (_) {}
+
+            // Give Streamlit time to spin up
+            await page.waitForTimeout(8000);
+
+            // Poll health until ok
+            let ok = false;
+            for (let i = 1; i <= 6; i++) {
+              try {
+                const res = await page.request.get(health, { timeout: 20000 });
+                const code = res.status();
+                const body = (await res.text()).trim();
+                console.log(`[wake] Attempt ${i}/6 -> code=${code} body='${body}'`);
+                if (code === 200 && body === 'ok') { ok = true; break; }
+              } catch (e) {
+                console.log(`[wake] Attempt ${i}/6 error: ${e.message}`);
+              }
+              await page.waitForTimeout(10000);
+            }
+
+            await browser.close();
+            if (!ok) { console.error('Health did not report ok'); process.exit(1); }
+            console.log('App is awake and healthy (200, ok)');
+          })();
+          EOF
+
+          node wake.js
+
+      - name: Summary
+        if: ${{ success() }}
+        run: echo "✅ App woke successfully and returned **ok**." >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary (failure)
+        if: ${{ failure() }}
+        run: echo "❌ App did not wake/health-check failed." >> $GITHUB_STEP_SUMMARY
