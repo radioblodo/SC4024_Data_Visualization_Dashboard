@@ -2,7 +2,7 @@ name: Keep Streamlit App Alive
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # every 15 min (UTC)
+    - cron: "*/15 * * * *" # every 15 minutes (UTC)
   workflow_dispatch:
 
 jobs:
@@ -10,28 +10,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Ping Streamlit app (GET, follow redirects)
+      - name: Wake + health-check
         run: |
-          URL="https://olympicsvisualization4024.streamlit.app"   # <-- your URL
-          echo "Pinging $URL at $(date -u)"
+          URL_BASE="https://olympicsvisualization4024.streamlit.app"   # <-- your app
+          URL_HEALTH="$URL_BASE/_stcore/health"
+          echo "Pinging at $(date -u)"
+          # jitter to avoid thundering herd
+          sleep $((RANDOM % 45))
 
-          # Random jitter so requests aren’t at the exact same second every run
-          sleep $((RANDOM % 60))
+          # 1) Gentle nudge (do NOT follow redirects here; just trigger traffic)
+          curl -sS --max-time 30 -A "keepalive-bot/1.0" "$URL_BASE" -o /dev/null || true
 
-          # GET (not HEAD), follow redirects (-L), fail on non-2xx, and read body to actually wake it
-          # Also print status code & total time to the job summary.
-          CODE=$(curl -sS -L --max-time 60 --retry 3 --retry-delay 5 \
-                 -A "keepalive-bot/1.0" \
-                 -o /dev/null -w "%{http_code}" "$URL")
-          TIME=$(curl -sS -L --max-time 60 --retry 3 --retry-delay 5 \
-                 -A "keepalive-bot/1.0" \
-                 -o /dev/null -w "%{time_total}" "$URL")
+          # 2) Give the instance a moment to spin
+          sleep 8
 
-          echo "HTTP code: $CODE  |  time: ${TIME}s"
-          echo "HTTP code: $CODE  |  time: ${TIME}s" >> $GITHUB_STEP_SUMMARY
+          # 3) Health check loop: expect HTTP 200 and body 'ok'
+          ATTEMPTS=6
+          DELAY=10
+          ok=0
+          for i in $(seq 1 $ATTEMPTS); do
+            CODE=$(curl -sS --max-time 20 -w "%{http_code}" -o health.out "$URL_HEALTH" || echo "000")
+            BODY=$(cat health.out || true)
+            echo "Attempt $i/$ATTEMPTS -> code=$CODE body='$BODY'"
+            if [ "$CODE" = "200" ] && [ "$BODY" = "ok" ]; then
+              ok=1
+              break
+            fi
+            sleep $DELAY
+          done
 
-          # Fail the step if not 2xx
-          if [[ ! "$CODE" =~ ^2 ]]; then
-            echo "Non-2xx response; failing."
+          echo "Health endpoint: $URL_HEALTH" >> $GITHUB_STEP_SUMMARY
+          if [ $ok -eq 1 ]; then
+            echo "✅ App is awake (200, ok)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ App did not report healthy in time" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
